@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Tuple, List
 import re
 from validations import check_single_match, check_text_format
+import pandas as pd
+import logging
 
 
 class Highlight():
@@ -84,14 +86,14 @@ class Highlight():
             ParsingError: If no date in the format 'Month date year' is found within the text
         """
 
-        date_pattern = r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b"
+        date_pattern = r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\b"
         matches = re.findall(date_pattern, text)
 
         date_string = check_single_match(matches=matches, 
                                        msg_no_matches='Text must contain a date',
                                        msg_more_than_one_match='Text can only contain a single date')
 
-        return datetime.strptime(date_string, "%B %d, %Y").date()
+        return datetime.strptime(date_string, "%B %d, %Y %I:%M:%S %p")
 
 
     def _parse_pages(text:str) -> Tuple[int]:
@@ -166,9 +168,9 @@ class Highlight():
         return text
 
     @staticmethod
-    def parse_highlights_file() -> List:
+    def parse_highlights_file(filename) -> List:
 
-        file_content = Highlight.read_file('My Clippings updated.txt')
+        file_content = Highlight.read_file(filename)
 
         raw_highlights =  file_content.split('==========')
 
@@ -185,3 +187,30 @@ class Highlight():
             output.append(highlight_processed)
 
         return output
+
+    @staticmethod
+    def convert_to_table(filename) -> pd.DataFrame:
+
+        all_parsed_highlights = Highlight.parse_highlights_file(filename)
+
+        rows = []
+
+        for h in all_parsed_highlights:
+
+            start_page, end_page = h.pages
+
+            new_row = dict(document_name=h.document_name, date=h.date, start_page=start_page, end_page=end_page, content=h.content, author=h.author)
+
+            rows.append(new_row)
+
+        return pd.DataFrame(rows)
+    
+def save_parsed_highlights(filename) -> None:
+
+    table = Highlight.convert_to_table(filename)
+
+    last_highlight_date = datetime.strftime(table['date'].max(), "%d_%m_%Y_%H_%M_%S")
+
+    table.to_csv(f'highlights_up_to_{last_highlight_date}.csv', index=False)
+
+save_parsed_highlights('My Clippings updated.txt')
