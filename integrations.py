@@ -146,3 +146,29 @@ def get_books_in_notion_db(database_id, api_key, notion_version) -> Dict:
     
     return output
 
+def update_number_of_highlights(page_id: str, highlights_added:int, api_key, notion_version):
+    
+    url = f'https://api.notion.com/v1/pages/{page_id}'
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+        'Notion-Version': notion_version,
+    }
+
+    page_details = get_notion_page_info(page_id=page_id, api_key=api_key, notion_version=notion_version)
+
+    prev_properties = page_details['properties']
+
+    prev_num_highlights = prev_properties['Number of Highlights']['number']
+    new_num_highlights = highlights_added + prev_num_highlights
+
+    updated_properties = prev_properties
+    updated_properties['Number of Highlights']['number'] = new_num_highlights
+
+    data = {
+        'properties': updated_properties
+    }
+
+    response = requests.patch(url, headers=headers, json=data)
+    response.raise_for_status()

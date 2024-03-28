@@ -2,7 +2,7 @@ from utils import HighlightFileProcessor, Highlight
 import re 
 from datetime import datetime
 from dotenv import load_dotenv
-from integrations import get_books_in_notion_db, add_book_to_db, append_content_to_page
+from integrations import get_books_in_notion_db, add_book_to_db, append_content_to_page, get_notion_page_info, update_number_of_highlights
 import os
 import logging
 import pandas as pd
@@ -19,8 +19,9 @@ DATABASE_ID = os.getenv('HIGHLIGHTS_FROM_KINDLE_DB_ID')
 
 def get_common_value(partial_df, col_name):
     try:
-        assert partial_df[col_name].nunique() ==1, f'More than one different value for {col_name}'
+        assert partial_df[col_name].nunique()==1, f'More than one different value for {col_name}'
     except Exception as e:
+        print(partial_df[col_name])
         print(partial_df[col_name].unique())
         raise e
     return partial_df[col_name].values[0]
@@ -38,8 +39,8 @@ def get_last_highlight_date(log_file_name : str):
 
     lines = file_content.splitlines()
 
-    pattern = 'uploaded to Notion'
-    date_pattern = r'(\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2})'
+    pattern = 'Finished uploading highlights.'
+    date_pattern = r'Date from last highlight is (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
 
     dates_of_update = []
 
@@ -47,9 +48,9 @@ def get_last_highlight_date(log_file_name : str):
 
         if pattern in line:
             
-            date_from_line = re.search(date_pattern, line).group(0)
+            date_from_line = re.search(date_pattern, line).group(1)
 
-            date_from_line = datetime.strptime(date_from_line, "%d-%m-%Y %H:%M:%S")
+            date_from_line = datetime.strptime(date_from_line, "%Y-%m-%d %H:%M:%S")
 
             dates_of_update.append(date_from_line)
 
@@ -65,11 +66,12 @@ def add_missing_pages(books_in_db, new_highlights):
     titles_from_books_in_db = [book['title'].lower() for book in books_in_db]
 
     titles_from_books_to_upload = new_highlights.document_name.unique()
-    titles_from_books_to_upload = [t.lower() for t in titles_from_books_to_upload]
 
-    missing_books = [title for title in titles_from_books_to_upload if title not in titles_from_books_in_db]
+    missing_books = [title for title in titles_from_books_to_upload if title.lower() not in titles_from_books_in_db]
 
     for title in missing_books:
+
+        print(f'Adding {title} to database in Notion...')
 
         rows_matching_book = new_highlights[(new_highlights.document_name == title) & (~new_highlights.is_vocabulary)]
 
@@ -112,60 +114,100 @@ def upload_highlights_from_book(new_highlights_from_book:pd.DataFrame, page_id:s
         notion_version=NOTION_VERSION
     )
 
+    update_number_of_highlights(
+        page_id=page_id, 
+        highlights_added=len(new_highlights_from_book), 
+        api_key=NOTION_API_KEY, 
+        notion_version=NOTION_VERSION
+    )
 
 if __name__ =='__main__':
 
     last_highlight_date = get_last_highlight_date('application.log')
 
-
     # Update the parsed highlights
     df = HighlightFileProcessor.convert_to_table('My Clippings.txt')
 
-    df = df[df.document_name == 'Take Your Shot']
+    df.date = pd.to_datetime(df.date)
 
     if last_highlight_date :
 
         # Only consider the highlights done after the date 
         # of the last highlight logged into the DB
 
-        new_highlights = df[(df.date>last_highlight_date) & (df.is_vocabulary)].copy()
-        new_vocabulary = df[(df.date>last_highlight_date) & ~(df.is_vocabulary)].copy()
+        new_highlights = df.loc[(df.date>last_highlight_date) & ~(df.is_vocabulary)].copy()
+        new_vocabulary = df.loc[(df.date>last_highlight_date) & (df.is_vocabulary)].copy()
     else:
         new_highlights  = df[~df.is_vocabulary].copy()
         new_vocabulary = df[df.is_vocabulary].copy()
-
-    new_vocabulary = new_vocabulary[['content', 'date']]
-
-    books_in_db = get_books_in_notion_db(database_id=DATABASE_ID, api_key=NOTION_API_KEY, notion_version=NOTION_VERSION)
-
-    add_missing_pages(books_in_db=books_in_db, new_highlights=new_highlights)
-
-    # Update the variable to get the ids from the new pages
-
-    books_in_db = get_books_in_notion_db(database_id=DATABASE_ID, api_key=NOTION_API_KEY, notion_version=NOTION_VERSION)
-
-    for book_title, highlights_from_book in new_highlights.groupby('document_name'):
-
-        page_id = [book['id'] for book in books_in_db if book['title']==book_title]
-
-        if page_id:
-            page_id = page_id[0]
-        else:
-            raise ValueError()
-  
-        upload_highlights_from_book(new_highlights_from_book=highlights_from_book, page_id=page_id)
-
-        logging.info(f'Uploaded {len(highlights_from_book)} highlights to Notion to {book_title}.')
-
-    max_date = new_highlights.date.max()
-    new_vocabulary.to_csv('vocabulary.csv', mode='a', index=False)
-
-    logging.info(f'Finished uploading highlights. Date from last highlight {max_date}')
-        
-    raise ValueError
-
-    print(df)
-
-
-
     
+    if not new_highlights.empty:
+
+        books_in_db = get_books_in_notion_db(database_id=DATABASE_ID, api_key=NOTION_API_KEY, notion_version=NOTION_VERSION)
+
+        print()
+        print('Adding missing books to database'.center(60, '-'))
+        print()
+
+        add_missing_pages(books_in_db=books_in_db, new_highlights=new_highlights)
+
+        # Update the variable to get the ids from the new pages
+        print()
+        print('Updating database'.center(60, '-'))
+        print()
+
+        books_in_db = get_books_in_notion_db(database_id=DATABASE_ID, api_key=NOTION_API_KEY, notion_version=NOTION_VERSION)
+
+        print('Uploading highlights to Notion'.center(60, '-'))
+        print()
+        print(f'Highlights from {new_highlights.date.min()} to {new_highlights.date.max()}')
+        print()
+
+        for book_title, highlights_from_book in new_highlights.groupby('document_name'):
+
+            page_id = [book['id'] for book in books_in_db if book['title']==book_title]
+
+            if page_id:
+                page_id = page_id[0]
+            else:
+                raise ValueError()
+            
+            print(f'\t- Uploading {len(highlights_from_book)} highlights to {book_title}...')
+
+            upload_highlights_from_book(new_highlights_from_book=highlights_from_book, page_id=page_id)
+
+            logging.info((f'Uploaded {len(highlights_from_book)} highlights to {book_title}' 
+                          f'ranging from {highlights_from_book.date.min()} to {highlights_from_book.date.max()}'))
+            
+        max_date = new_highlights.date.max()
+        print()
+        print('New max date is ', max_date)
+
+        print()
+        print('Adding new vocabulary to CSV'.center(60, '-'))
+        print()
+
+        starting_num_words = len(new_vocabulary)
+        new_vocabulary = new_vocabulary[['content', 'date']]
+        empty = new_vocabulary.content.str.strip()
+        empty = (empty.isna())|(empty=='')
+        
+        new_vocabulary = new_vocabulary.loc[~empty]
+        end_num_words = len(new_vocabulary)
+        print(f'\t- Dropped {starting_num_words - end_num_words} words.')
+
+        new_vocabulary.to_csv('vocabulary.csv', mode='a', index=False, header=False)
+        print(f'\t- Added {len(new_vocabulary)} words of vocabulary to CSV')
+
+        logging.info(f'Finished uploading highlights. Date from last highlight is {max_date}')
+        print()
+        print('Process completed succesfully.')
+        print()
+
+    else:
+        print()
+        print('-'*60)
+        print(f'No highlights uploaded : no remaining highlights after {last_highlight_date}')
+        print('-'*60)
+        print()
+        logging.warning(f'No highlights uploaded : no remaining highlights after {last_highlight_date}')
