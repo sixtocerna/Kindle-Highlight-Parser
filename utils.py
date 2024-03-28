@@ -3,6 +3,10 @@ from typing import Tuple, List, Literal
 import re
 import pandas as pd
 from datetime import datetime
+import logging
+import json
+
+#logging.basicConfig(filename='application.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Highlight():
     """
@@ -53,8 +57,7 @@ class Highlight():
         match structure:
 
             case 'quote_paragraph':
-                content = {
-                    "children": [
+                content = [
                         {
                             "object": "block",
                             "type": "quote",
@@ -85,7 +88,6 @@ class Highlight():
                             }
                         }
                     ]
-                }
 
             case _:
                 
@@ -123,7 +125,7 @@ class HighlightParser():
 
         title, author = content.split('by')
 
-        return title, author
+        return title.strip(), author.strip()
 
     def _parse_date(text:str) -> str:
         """
@@ -228,6 +230,19 @@ class HighlightFileProcessor:
 
         file_content = HighlightFileProcessor.read_file(filename)
 
+        # Replace the titles specified in the updated_titles.json file
+
+        with open('updated_titles.json', 'r') as json_file:
+            updated_titles = json.load(json_file)
+
+        new_file_content = file_content
+
+        for old_title, updated_title in updated_titles.items():
+
+            new_file_content = new_file_content.replace(old_title, updated_title)
+
+        file_content = new_file_content
+
         raw_highlights =  file_content.split('==========')
 
         output = []
@@ -242,12 +257,18 @@ class HighlightFileProcessor:
 
             output.append(highlight_processed)
 
+        logging.info(f'{filename} parsed')
+
         return output
 
     @staticmethod
     def convert_to_table(filename) -> pd.DataFrame:
 
-        all_parsed_highlights = HighlightFileProcessor.parse_highlights_file(filename)
+        try:
+            all_parsed_highlights = HighlightFileProcessor.parse_highlights_file(filename)
+        except Exception as e:
+            logging.error(f'Error {e} raise while parsing {filename}.')
+            raise e
 
         rows = []
 
@@ -268,5 +289,14 @@ class HighlightFileProcessor:
         output['is_vocabulary'] = is_vocabulary
 
         return output
- 
-print(HighlightFileProcessor.convert_to_table('My Clippings updated.txt').iloc[0].to_dict())
+    
+    @staticmethod
+    def save_table(filename) -> None:
+
+        table = HighlightFileProcessor.convert_to_table(filename)
+
+        last_highlight_date = datetime.strftime(table['date'].max(), "%d-%m-%Y %H:%M:%S")
+
+        logging.info(f'Parsed highlights table updated. Last highlight is from {last_highlight_date}')
+
+        table.to_csv(f'parsed_highlights.csv', index=False)
