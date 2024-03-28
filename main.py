@@ -2,11 +2,10 @@ from utils import HighlightFileProcessor, Highlight
 import re 
 from datetime import datetime
 from dotenv import load_dotenv
-from integrations import get_books_in_notion_db, add_book_to_db, append_content_to_page, get_notion_page_info, update_number_of_highlights
+from integrations import get_books_in_notion_db, add_book_to_db, append_content_to_page, update_number_of_highlights
 import os
 import logging
 import pandas as pd
-import warnings
 
 logging.basicConfig(filename='application.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -77,7 +76,7 @@ def add_missing_pages(books_in_db, new_highlights):
 
         author = get_common_value(rows_matching_book, 'author')
         date = rows_matching_book.date.min()
-        num_highlights = len(rows_matching_book)
+        num_highlights = 0
 
         add_book_to_db(
                 database_id=DATABASE_ID, 
