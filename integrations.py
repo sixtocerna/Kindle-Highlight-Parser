@@ -1,6 +1,7 @@
 import requests
 from datetime import datetime
 from typing import Dict
+import warnings
 
 
 def get_notion_page_info(page_id, api_key:str, notion_version) -> Dict:
@@ -42,12 +43,34 @@ def append_content_to_page(page_id, content, api_key:str, notion_version) -> Dic
             "Content-Type":"application/json",
             'Notion-Version': notion_version,
         }
+    
+    if len(content['children'])<100:
 
-    response = requests.patch(url, headers=headers, json=content)
+        response = requests.patch(url, headers=headers, json=content)
 
-    response.raise_for_status()
+        response.raise_for_status()
 
-    return response.status_code
+    else:
+
+        all_children = content['children']
+
+        warnings.warn(f'Batching content for uploading {len(all_children)} elements...')
+
+        batch_size = 100
+
+        for i in range(0, len(all_children)+1, batch_size):
+
+            start_idx = i
+            end_idx = min(i + batch_size, len(all_children))
+
+            batch_children = all_children[start_idx:end_idx]
+
+            batch_content = {'children':batch_children}
+
+            response = requests.patch(url, headers=headers, json=batch_content)
+
+            response.raise_for_status()
+
 
 def retrieve_database_rows(database_id, api_key:str, notion_version) -> Dict:
     url = f'https://api.notion.com/v1/databases/{database_id}/query'
