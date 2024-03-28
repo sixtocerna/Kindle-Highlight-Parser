@@ -1,18 +1,9 @@
 import requests
-from dotenv import load_dotenv
-import os
 from datetime import datetime
 from typing import Dict
 
-load_dotenv()
 
-NOTION_VERSION = os.getenv('NOTION_VERSION')
-PAGE_ID = os.getenv('PAGE_ID')
-NOTION_API_KEY = os.getenv('NOTION_API_KEY')
-DATABASE_ID = os.getenv('HIGHLIGHTS_FROM_KINDLE_DB_ID')
-
-
-def get_notion_page_info(page_id, api_key:str = NOTION_API_KEY, notion_version = NOTION_VERSION) -> Dict:
+def get_notion_page_info(page_id, api_key:str, notion_version) -> Dict:
 
     url = f'https://api.notion.com/v1/pages/{page_id}'
 
@@ -27,7 +18,7 @@ def get_notion_page_info(page_id, api_key:str = NOTION_API_KEY, notion_version =
 
     return response.json()
 
-def get_notion_page_contents(page_id, api_key:str = NOTION_API_KEY, notion_version = NOTION_VERSION) -> Dict:
+def get_notion_page_contents(page_id, api_key:str, notion_version) -> Dict:
 
     url = f'https://api.notion.com/v1/blocks/{page_id}/children'
 
@@ -42,7 +33,7 @@ def get_notion_page_contents(page_id, api_key:str = NOTION_API_KEY, notion_versi
 
     return response.json()
 
-def append_content_to_page(page_id, content, api_key:str = NOTION_API_KEY, notion_version = NOTION_VERSION) -> Dict:
+def append_content_to_page(page_id, content, api_key:str, notion_version) -> Dict:
 
     url = f'https://api.notion.com/v1/blocks/{page_id}/children'
 
@@ -58,7 +49,7 @@ def append_content_to_page(page_id, content, api_key:str = NOTION_API_KEY, notio
 
     return response.status_code
 
-def retrieve_database_rows(database_id, api_key:str = NOTION_API_KEY, notion_version = NOTION_VERSION) -> Dict:
+def retrieve_database_rows(database_id, api_key:str, notion_version) -> Dict:
     url = f'https://api.notion.com/v1/databases/{database_id}/query'
 
     headers = {
@@ -114,13 +105,13 @@ def create_new_row_properties(title, author, date, num_highlights):
 
     return new_properties
 
-def add_book_to_db(database_id, title, author, num_highlights, date:datetime, subject = None, api_key = NOTION_API_KEY) -> None:
+def add_book_to_db(database_id, title, author, num_highlights, date:datetime, api_key, notion_version) -> None:
     url = 'https://api.notion.com/v1/pages'
 
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
-        'Notion-Version': '2021-05-13',
+        'Notion-Version': notion_version,
     }
    
     data = {
@@ -132,9 +123,9 @@ def add_book_to_db(database_id, title, author, num_highlights, date:datetime, su
     response.raise_for_status()
     
 
-def get_books_in_notion_db(database_id, api_key = NOTION_API_KEY) -> Dict:
+def get_books_in_notion_db(database_id, api_key, notion_version) -> Dict:
 
-    response = retrieve_database_rows(database_id, api_key=api_key)
+    response = retrieve_database_rows(database_id, api_key=api_key, notion_version=notion_version)
 
     output = []
 
