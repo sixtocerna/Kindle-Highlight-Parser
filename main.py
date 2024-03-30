@@ -1,4 +1,4 @@
-from utils import HighlightFileProcessor, Highlight
+from highlight_processing import HighlightFileProcessor, Highlight
 import re 
 from datetime import datetime
 from dotenv import load_dotenv
@@ -16,7 +16,7 @@ PAGE_ID = os.getenv('PAGE_ID')
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')
 DATABASE_ID = os.getenv('HIGHLIGHTS_FROM_KINDLE_DB_ID')
 
-def get_common_value(partial_df, col_name):
+def get_unique_column_value(partial_df, col_name):
     try:
         assert partial_df[col_name].nunique()==1, f'More than one different value for {col_name}'
     except Exception as e:
@@ -74,7 +74,7 @@ def add_missing_pages(books_in_db, new_highlights):
 
         rows_matching_book = new_highlights[(new_highlights.document_name == title) & (~new_highlights.is_vocabulary)]
 
-        author = get_common_value(rows_matching_book, 'author')
+        author = get_unique_column_value(rows_matching_book, 'author')
         date = rows_matching_book.date.min()
         num_highlights = 0
 

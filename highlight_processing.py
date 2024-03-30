@@ -1,12 +1,10 @@
 from validations import check_single_match, check_text_format
-from typing import Tuple, List, Literal
+from typing import Tuple, List, Literal, Dict
 import re
 import pandas as pd
 from datetime import datetime
 import logging
 import json
-
-#logging.basicConfig(filename='application.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Highlight():
     """
@@ -207,7 +205,7 @@ class HighlightParser():
 class HighlightFileProcessor:
 
     @staticmethod
-    def read_file(filename:str = 'My Clippings.txt') -> str:
+    def read_file_content(filename:str = 'My Clippings.txt') -> str:
         """
         Reads the contents of a text file and returns the text.
 
@@ -224,24 +222,29 @@ class HighlightFileProcessor:
             text = file.read()
             
         return text
+    
+    @staticmethod
+    def _update_book_titles(prev_file_contents:str, updated_titles:Dict[str, str]):
+
+        new_file_content = prev_file_contents
+
+        for old_title, updated_title in updated_titles.items():
+
+            new_file_content = new_file_content.replace(old_title, updated_title)
+
+        return new_file_content
 
     @staticmethod
-    def parse_highlights_file(filename) -> List[Highlight]:
+    def process_highlights_file(filename) -> List[Highlight]:
 
-        file_content = HighlightFileProcessor.read_file(filename)
+        file_content = HighlightFileProcessor.read_file_content(filename)
 
         # Replace the titles specified in the updated_titles.json file
 
         with open('updated_titles.json', 'r') as json_file:
             updated_titles = json.load(json_file)
 
-        new_file_content = file_content
-
-        for old_title, updated_title in updated_titles.items():
-
-            new_file_content = new_file_content.replace(old_title, updated_title)
-
-        file_content = new_file_content
+        file_content = HighlightFileProcessor._update_book_titles(prev_file_contents=file_content, updated_titles=updated_titles)
 
         raw_highlights =  file_content.split('==========')
 
@@ -257,7 +260,7 @@ class HighlightFileProcessor:
 
             output.append(highlight_processed)
 
-        logging.info(f'{filename} parsed')
+        logging.info(f'{filename} processed')
 
         return output
 
@@ -265,9 +268,9 @@ class HighlightFileProcessor:
     def convert_to_table(filename) -> pd.DataFrame:
 
         try:
-            all_parsed_highlights = HighlightFileProcessor.parse_highlights_file(filename)
+            all_parsed_highlights = HighlightFileProcessor.process_highlights_file(filename)
         except Exception as e:
-            logging.error(f'Error {e} raise while parsing {filename}.')
+            logging.error(f'Error {e} raise while processing {filename}.')
             raise e
 
         rows = []
@@ -291,7 +294,7 @@ class HighlightFileProcessor:
         return output
     
     @staticmethod
-    def save_table(filename) -> None:
+    def save_table_to_csv(filename) -> None:
 
         table = HighlightFileProcessor.convert_to_table(filename)
 
