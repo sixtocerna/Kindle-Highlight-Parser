@@ -1,3 +1,7 @@
+"""
+This module contains functions and classes for validating input data.
+"""
+
 from typing import List, TypeVar
 import re
 
@@ -5,6 +9,9 @@ T = TypeVar('T')
 
 
 class ParsingError(Exception):
+    """
+    Exception raised when an error occurs during parsing.
+    """
 
     def __init__(self, *args: object) -> None:
         super().__init__(*args)

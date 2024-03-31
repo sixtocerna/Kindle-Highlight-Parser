@@ -1,13 +1,19 @@
-from typing import List
+"""
+This module contains utility functions for reading file contents, extracting unique column values,
+and extracting dates from lines of text.
+"""
+
+from typing import List, Any
 from datetime import datetime
 import re
+import pandas as pd
 
-def read_file_content(filename) -> str:
+def read_file_content(filename:str) -> str:
     """
-    Reads the contents of a text file and returns the text.
+    Returns the content of a text file
 
     Args:
-        filename (str): The name of the file to read. Should be in the same directory. Defaults to 'My Clippings.txt'.
+        filename (str): The name of the file to read. Should be in the same directory.
 
     Returns:
         str: The text contained in the file.
@@ -20,7 +26,21 @@ def read_file_content(filename) -> str:
     return text
 
 
-def get_unique_column_value(partial_df, col_name):
+def get_unique_column_value(partial_df:pd.DataFrame, col_name:str) -> Any:
+    """
+    Retrieves the unique value from a column in a Pandas DataFrame subset.
+
+    Args:
+        partial_df (pandas.DataFrame): A subset of the DataFrame.
+        col_name (str): The name of the column to retrieve the unique value from.
+
+    Returns:
+        Any: The unique value from the specified column.
+
+    Raises:
+        AssertionError: If the column contains more than one unique value.
+    """
+
     try:
         assert partial_df[col_name].nunique()==1, f'More than one different value for {col_name}'
     except AssertionError as e:
@@ -29,7 +49,22 @@ def get_unique_column_value(partial_df, col_name):
         raise e
     return partial_df[col_name].values[0]
 
-def extract_dates_from_lines(file_content:str, selected_lines_pattern:str, date_pattern:str) -> List[datetime]:
+def extract_dates_from_lines(
+        file_content:str, 
+        selected_lines_pattern:str, 
+        date_pattern:str
+        ) -> List[datetime]:
+    """
+    Extracts dates from lines of text that match a specific pattern.
+
+    Args:
+        file_content (str): The content of the file to search.
+        selected_lines_pattern (str): The pattern to match lines of interest.
+        date_pattern (str): The pattern to match dates within the selected lines.
+
+    Returns:
+        List[datetime]: A list of datetime objects representing the extracted dates.
+    """
     
     lines_in_text = file_content.splitlines()
 

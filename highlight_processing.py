@@ -1,5 +1,9 @@
+"""
+This module contains classes and functions for processing and parsing highlights from Kindle books.
+"""
+
 from validations import check_single_match, check_text_format
-from typing import Tuple, List, Literal, Dict
+from typing import Tuple, List, Literal, Dict, Any
 import re
 import pandas as pd
 from datetime import datetime
@@ -18,6 +22,7 @@ class Highlight():
         content (str): The content of the highlight.
         author (str, optional): The author of the document. Defaults to None.
     """
+
 
     def __init__(self, document_name:str, date:datetime, pages:Tuple[int], content:str, author=None) -> None:
         """
@@ -38,11 +43,26 @@ class Highlight():
         self.author = author
 
     def __str__(self) -> str:
+        """
+        Returns a string representation of the Highlight object.
+        """
         return f""" Title : {self.document_name} | Author : {self.author} | Date : {self.date} | Pages : {self.pages}
         {self.content}
         """
     
-    def to_notion_block(self, structure : Literal['quote_paragraph']) -> dict :
+    def to_notion_block(self, structure : Literal['quote_paragraph']) -> List[Dict[str, Any]]:
+        """
+        Converts the Highlight object to a Notion block structure.
+
+        Args:
+            structure (Literal['quote_paragraph']): The structure of the Notion block.
+
+        Returns:
+            dict: The Notion block structure representing the highlight.
+
+        Raises:
+            TypeError: If the specified structure is not implemented.
+        """
 
         page_start, page_end = self.pages
 
@@ -96,24 +116,25 @@ class Highlight():
 
 
 class HighlightParser():
+    """
+    A class for parsing highlight details from raw text.
+    """
 
-    def _parse_title_and_author(text:str) -> str:
+    def _parse_title_and_author(text:str) -> Tuple[str]:
         """
         Parses the title and author from the given text.
 
-        Expects the following formats :
+        Expects the following format :
             - 'Title by author.extension'
 
         Args:
             text (str): The text containing the title and author information.
-            ignore_missing_author (bool, optional): Whether to ignore missing author information. Defaults to True.
-            ignore_missing_extension (bool, optional): Whether to ignore missing file extension. Defaults to True.
 
         Returns:
             Tuple[str]: The parsed title and author.
 
         Raises:
-            ParsingError: If the are multiple dots, 'by' or '(' inside the text.
+            ParsingError: If the text does not match the expected format.
         """
 
         pattern = r'^.* by .*$'
@@ -126,15 +147,19 @@ class HighlightParser():
 
         return title.strip(), author.strip()
 
-    def _parse_date(text:str) -> str:
+    def _parse_date(text:str) -> datetime:
         """
         Parses the date from the given text.
+
+        Expects the following format :
+            - 'Month day year hour:minutes:seconds PM'
+            - 'Month day year hour:minutes:seconds AM'
 
         Args:
             text (str): The text containing the date information.
 
         Returns:
-            str: The parsed date.
+            datetime: The parsed date.
 
         Raises:
             ParsingError: If no date in the format 'Month date year' is found within the text
@@ -153,6 +178,10 @@ class HighlightParser():
     def _parse_pages(text:str) -> Tuple[int]:
         """
         Parses the pages from the given text.
+
+        Expects one of following format:
+            * Page Num - Page Num
+            * Page Num
 
         Args:
             text (str): The text containing the page information.
@@ -204,10 +233,22 @@ class HighlightParser():
     
 
 class HighlightFileProcessor:
-    
-    @staticmethod
-    def _update_book_titles(prev_file_contents:str, updated_titles:Dict[str, str]):
+    """
+    A class for processing highlight files and converting them to a table.
+    """
 
+    @staticmethod
+    def _update_book_titles(prev_file_contents:str, updated_titles:Dict[str, str]) -> str:
+        """
+        Updates the book titles in the file contents based on a dictionary of updated titles.
+
+        Args:
+            prev_file_contents (str): The previous file contents.
+            updated_titles (Dict[str, str]): A dictionary mapping old titles to new titles.
+
+        Returns:
+            str: The updated file contents with the titles replaced.
+        """
         new_file_content = prev_file_contents
 
         for old_title, updated_title in updated_titles.items():
@@ -217,7 +258,16 @@ class HighlightFileProcessor:
         return new_file_content
 
     @staticmethod
-    def process_highlights_file(filename) -> List[Highlight]:
+    def process_highlights_file(filename:str) -> List[Highlight]:
+        """
+        Processes a highlight file and returns a list of Highlight objects.
+
+        Args:
+            filename (str): The name of the highlight file.
+
+        Returns:
+            List[Highlight]: A list of Highlight objects parsed from the file.
+        """
 
         file_content = read_file_content(filename)
 
@@ -247,7 +297,16 @@ class HighlightFileProcessor:
         return output
 
     @staticmethod
-    def convert_to_table(filename) -> pd.DataFrame:
+    def convert_to_table(filename:str) -> pd.DataFrame:
+        """
+        Converts the highlights from a file into a Pandas DataFrame.
+
+        Args:
+            filename (str): The name of the highlight file.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the parsed highlight information.
+        """
 
         try:
             all_parsed_highlights = HighlightFileProcessor.process_highlights_file(filename)
@@ -277,6 +336,12 @@ class HighlightFileProcessor:
     
     @staticmethod
     def save_table_to_csv(filename) -> None:
+        """
+        Saves the highlight table to a CSV file.
+
+        Args:
+            filename (str): The name of the highlight file.
+        """
 
         table = HighlightFileProcessor.convert_to_table(filename)
 

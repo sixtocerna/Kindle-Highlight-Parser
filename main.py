@@ -1,3 +1,8 @@
+"""
+This module is the main entry point for the application. It handles the processing of highlights,
+updating the Notion database, and managing vocabulary.
+"""
+
 from highlight_processing import HighlightFileProcessor, Highlight
 from dotenv import load_dotenv
 from integrations import get_books_in_notion_db, add_book_to_db, append_content_to_page, update_number_of_highlights
@@ -5,7 +10,7 @@ import os
 import logging
 import pandas as pd
 from utils import get_unique_column_value, read_file_content, extract_dates_from_lines
-from typing import Dict, List
+from typing import Dict, List, Union
 from datetime import datetime
 
 logging.basicConfig(filename='application.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,10 +43,15 @@ def log_errors(
 
     return wrapper
 
-def parse_last_highlight_date_from_log(log_file_name : str):
+def parse_last_highlight_date_from_log(log_file_name : str) -> Union[None, datetime]:
     """
-    Returns the latest date from a highlight loaded into the database
+    Returns the latest date from a highlight loaded into the database.
 
+    Args:
+        log_file_name (str): The name of the log file.
+
+    Returns:
+        datetime or None: The latest date from a highlight loaded into the database, or None if no highlights were uploaded.
     """
 
     file_content = read_file_content(filename=log_file_name)
@@ -63,7 +73,17 @@ def parse_last_highlight_date_from_log(log_file_name : str):
     else: 
         return None
 
-def get_missing_books(books_in_db:List[Dict[str,str]], new_highlights:pd.DataFrame):
+def get_missing_books(books_in_db:List[Dict[str,str]], new_highlights:pd.DataFrame)->List[str]:
+    """
+    Returns a list of book titles that are not present in the Notion database.
+
+    Args:
+        books_in_db (List[Dict[str, str]]): A list of dictionaries representing books in the Notion database.
+        new_highlights (pd.DataFrame): A DataFrame containing new highlights.
+
+    Returns:
+        List[str]: A list of book titles that are not present in the Notion database.
+    """
 
     titles_from_books_in_db = [book['title'].lower() for book in books_in_db]
 
@@ -74,7 +94,14 @@ def get_missing_books(books_in_db:List[Dict[str,str]], new_highlights:pd.DataFra
     return missing_books
 
 
-def add_missing_pages(books_in_db, new_highlights):
+def add_missing_books_to_db(books_in_db:List[Dict[str,str]], new_highlights:pd.DataFrame) -> None:
+    """
+    Adds missing books to the Notion database.
+
+    Args:
+        books_in_db (List[Dict[str, str]]): A list of dictionaries representing books in the Notion database.
+        new_highlights (pd.DataFrame): A DataFrame containing new highlights.
+    """
 
     missing_books = get_missing_books(books_in_db, new_highlights)
 
@@ -98,8 +125,14 @@ def add_missing_pages(books_in_db, new_highlights):
                 notion_version=NOTION_VERSION
             )
 
-def upload_highlights_from_book(new_highlights_from_book:pd.DataFrame, page_id:str):
+def upload_highlights_from_book(new_highlights_from_book:pd.DataFrame, page_id:str) -> None:
+    """
+    Uploads highlights from a book to the Notion page.
 
+    Args:
+        new_highlights_from_book (pd.DataFrame): A DataFrame containing highlights from a book.
+        page_id (str): The ID of the Notion page representing the book.
+    """
     highlights_to_upload = []
 
     for highlight_data in new_highlights_from_book.to_dict('records'):
@@ -130,7 +163,13 @@ def upload_highlights_from_book(new_highlights_from_book:pd.DataFrame, page_id:s
         notion_version=NOTION_VERSION
     )
 
-def upload_new_highlights_to_notion(new_highlights:pd.DataFrame):
+def upload_new_highlights_to_notion(new_highlights:pd.DataFrame) -> None:
+    """
+    Uploads new highlights to the Notion database.
+
+    Args:
+        new_highlights (pd.DataFrame): A DataFrame containing new highlights.
+    """
 
     books_in_db = get_books_in_notion_db(database_id=DATABASE_ID, api_key=NOTION_API_KEY, notion_version=NOTION_VERSION)
 
@@ -138,9 +177,8 @@ def upload_new_highlights_to_notion(new_highlights:pd.DataFrame):
     print('Adding missing books to database'.center(60, '-'))
     print()
 
-    add_missing_pages(books_in_db=books_in_db, new_highlights=new_highlights)
+    add_missing_books_to_db(books_in_db=books_in_db, new_highlights=new_highlights)
 
-    # Update the variable to get the ids from the new pages
     print()
     print('Updating database'.center(60, '-'))
     print()
@@ -171,7 +209,13 @@ def upload_new_highlights_to_notion(new_highlights:pd.DataFrame):
     logging.info(f'Finished uploading highlights. Date from last highlight is {new_highlights.date.max()}')
             
 
-def update_vocabulary_db(new_vocabulary:pd.DataFrame):
+def update_vocabulary_db(new_vocabulary:pd.DataFrame) -> None:
+    """
+    Updates the vocabulary database with new words.
+
+    Args:
+        new_vocabulary (pd.DataFrame): A DataFrame containing new vocabulary words.
+    """
 
     print()
     print('Adding new vocabulary to CSV'.center(60, '-'))
@@ -193,6 +237,18 @@ def update_vocabulary_db(new_vocabulary:pd.DataFrame):
 
 
 def select_new_highlights_and_vocabulary(df:pd.DataFrame, last_highlight_date:datetime):
+    """
+    Selects new highlights and vocabulary from a DataFrame based on the last highlight date.
+
+    Selects only the highlights done after the most recent highlight uploaded to the Notion database.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing highlights.
+        last_highlight_date (datetime): The date of the last highlight loaded into the database.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames, one for new highlights and one for new vocabulary.
+    """
 
     if last_highlight_date :
 
