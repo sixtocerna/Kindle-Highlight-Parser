@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 import logging
 import json
+from utils import read_file_content
 
 class Highlight():
     """
@@ -203,25 +204,6 @@ class HighlightParser():
     
 
 class HighlightFileProcessor:
-
-    @staticmethod
-    def read_file_content(filename:str = 'My Clippings.txt') -> str:
-        """
-        Reads the contents of a text file and returns the text.
-
-        Args:
-            filename (str, optional): The name of the file to read. Should be in the same directory. Defaults to 'My Clippings.txt'.
-
-        Returns:
-            str: The text contained in the file.
-
-        """
-
-        with open(filename, 'r') as file:
-
-            text = file.read()
-            
-        return text
     
     @staticmethod
     def _update_book_titles(prev_file_contents:str, updated_titles:Dict[str, str]):
@@ -237,7 +219,7 @@ class HighlightFileProcessor:
     @staticmethod
     def process_highlights_file(filename) -> List[Highlight]:
 
-        file_content = HighlightFileProcessor.read_file_content(filename)
+        file_content = read_file_content(filename)
 
         # Replace the titles specified in the updated_titles.json file
 
